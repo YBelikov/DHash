@@ -79,7 +79,6 @@ public class ImageService {
 
     private List<ImageSearchResultDTO> findImages(long hash, double threshold) {
         List<ImageSearchResultDTO> matches = new ArrayList<>();
-        System.out.println(hash);
         for (var image : images) {
             Double match = Double.valueOf(1 - (double)(countSetBits(hash ^ image.getHash())) / 64);
             if (match >= threshold) {

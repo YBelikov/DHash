@@ -20,12 +20,11 @@ public class HashingService {
 
 
     public Long computeHashOfImage(MultipartFile file) throws Exception{
-        //CompletableFuture<Long> hashFuture = new CompletableFuture<>();
+
         try {
             BufferedImage bufferedImage = ImageIO.read(file.getInputStream());
             bufferedImage = grayScale(bufferedImage);
             bufferedImage = resizeImage(bufferedImage, 9, 9);
-            //hashFuture.complete(Long.valueOf(dHash(bufferedImage, 9, 9)));
             return Long.valueOf(dHash(bufferedImage, 9, 9));
         } catch (IOException ex) {
             logger.info(ex.getMessage(), ex);
