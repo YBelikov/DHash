@@ -53,8 +53,8 @@ public class ImageService {
             addRecordToPersistentStorage(id, filePath, hashFuture.get().longValue());
         } catch (InterruptedException | ExecutionException ex) {
             logger.info("Error while saving file to disk", ex);
-        }catch (Exception ex) {
-            logger.info("Error while computing hash", ex);
+        } catch (IOException ex) {
+            logger.info("Error while reading file content", ex);
         }
     }
 
