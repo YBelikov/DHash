@@ -1,14 +1,14 @@
 package bsa.java.concurrency.service;
 
+import bsa.java.concurrency.fs.FileSystem;
 import bsa.java.concurrency.image.Image;
 import bsa.java.concurrency.image.dto.ImageSearchResultDTO;
-import bsa.java.concurrency.image.dto.SearchResultDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -20,16 +20,16 @@ import java.util.concurrent.ExecutionException;
 
 
 @Service
-public class BatchService {
+public class ImageService {
 
-    private static final Logger logger = LoggerFactory.getLogger(BatchService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ImageService.class);
     private List<Image> images = new ArrayList<>();
 
     private HashingService hashingService;
-    private FileSystemService fileSystemService;
+    private FileSystem fileSystemService;
 
     @Autowired
-    public BatchService(HashingService hashingService, FileSystemService fileSystemService) {
+    public ImageService(HashingService hashingService, @Qualifier("fileSystemService") FileSystem fileSystemService) {
         this.hashingService = hashingService;
         this.fileSystemService = fileSystemService;
     }
@@ -38,36 +38,24 @@ public class BatchService {
 
         UUID id = UUID.randomUUID();
         try {
-            //var filePathFuture = saveImageToDisk(id, file);
-            //long hash = computeHash(file);
-            //addRecordToPersistentStorage(id, filePathFuture, hash);
-            long hash = hashingService.computeHashOfImage(file);
+            fileSystemService.ensureThatCacheExists();
+
+            var hashFuture  = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return hashingService.computeHashOfImage(file);
+                } catch (Exception ex) {
+                    logger.info("Error while computing hash", ex);
+                }
+                return 0;
+            });
             String filePath = fileSystemService.saveFile(id.toString(), file.getBytes()).get();
-            Image image = new Image(id, filePath, hash);
-            images.add(image);
-        } catch (Exception ex) {
+
+            addRecordToPersistentStorage(id, filePath, hashFuture.get().longValue());
+        } catch (InterruptedException | ExecutionException ex) {
+            logger.info("Error while saving file to disk", ex);
+        }catch (Exception ex) {
             logger.info("Error while computing hash", ex);
         }
-    }
-
-    private long computeHash(MultipartFile file) {
-        long hash = 0;
-        try {
-            hash = hashingService.computeHashOfImage(file);
-        } catch (Exception ex) {
-            logger.info("Error while computing hash", ex);
-        }
-        return hash;
-    }
-
-
-    public String saveImageToDisk(UUID id, MultipartFile file) {
-        try {
-            return fileSystemService.saveFile(id.toString(), file.getBytes()).get();
-        } catch (IOException | InterruptedException | ExecutionException ex) {
-            logger.info("Error while processing file", ex);
-        }
-        return "";
     }
 
     private void addRecordToPersistentStorage(UUID id, String filePath, long hash) {
@@ -77,7 +65,7 @@ public class BatchService {
     public List<ImageSearchResultDTO> searchImages(MultipartFile file, double threshold) {
        try {
 
-           long hash = hashingService.computeHashOfImage(file);
+           long hash = hashingService.computeHashOfImage(file).longValue();
            List<ImageSearchResultDTO> findImages = findImages(hash, threshold);
            if(findImages.isEmpty()) {
                addNewFileToCache(file, hash);
@@ -90,7 +78,7 @@ public class BatchService {
     }
 
     private List<ImageSearchResultDTO> findImages(long hash, double threshold) {
-        List<ImageSearchResultDTO> matches = new ArrayList<ImageSearchResultDTO>();
+        List<ImageSearchResultDTO> matches = new ArrayList<>();
         System.out.println(hash);
         for (var image : images) {
             Double match = Double.valueOf(1 - (double)(countSetBits(hash ^ image.getHash())) / 64);
@@ -127,7 +115,13 @@ public class BatchService {
     @Async
     public void addNewFileToCache(MultipartFile file, long hash) {
         UUID id = UUID.randomUUID();
-        String filePath = saveImageToDisk(id, file);
-        addRecordToPersistentStorage(id, filePath, hash);
+        try {
+            String filePath = fileSystemService.saveFile(id.toString(), file.getBytes()).get();
+            addRecordToPersistentStorage(id, filePath, hash);
+        } catch (IOException ex) {
+            logger.info("Can't save file", ex);
+        } catch (InterruptedException | ExecutionException ex) {
+            logger.info("Error while executing file-saving thread", ex);
+        }
     }
 }

@@ -1,9 +1,8 @@
-package bsa.java.concurrency.service;
-
-import bsa.java.concurrency.fs.FileSystem;
+package bsa.java.concurrency.fs;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -15,21 +14,23 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-public class FileSystemService {
+@Qualifier("fileSystemService")
+public class FileSystemService implements FileSystem {
 
     private static final Logger logger = LoggerFactory.getLogger(FileSystemService.class);
 
     @Value("${cache.path}")
     private String cachePath;
 
+
+    @Override
     @Async
     public CompletableFuture<String> saveFile(String fileName, byte[] file) {
-        ensureThatCacheExists();
-        //CompletableFuture<String> result = CompletableFuture.supplyAsync(() -> {
+
+        CompletableFuture<String> result = new CompletableFuture<>();//.supplyAsync(() -> {
         String pathToImage = cachePath + "/" + fileName + ".jpg";
         File image = new File(pathToImage);
         FileOutputStream fileOutputStream = null;
@@ -48,19 +49,20 @@ public class FileSystemService {
             } catch (IOException ex) {
                 logger.info("Error while closing stream", ex);
             }
-           // return pathToImage;
+                result.complete(pathToImage);
         }
-       // });
-        return CompletableFuture.completedFuture(pathToImage);
+        return result;
     }
 
-    private void ensureThatCacheExists() {
+    @Override
+    public void ensureThatCacheExists() {
         File cache = new File(cachePath);
         if (!cache.exists()) {
             cache.mkdir();
         }
     }
 
+    @Override
     public void deleteImage(String imageId) {
         try {
             FileSystemUtils.deleteRecursively(Path.of(cachePath + "/" + imageId + ".jpg"));
@@ -69,6 +71,7 @@ public class FileSystemService {
         }
     }
 
+    @Override
     public void clearDiskStorage() {
         try {
             FileSystemUtils.deleteRecursively(Path.of(cachePath));

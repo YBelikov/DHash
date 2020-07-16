@@ -2,6 +2,7 @@ package bsa.java.concurrency.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -9,6 +10,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import javax.imageio.ImageIO;
 
 @Service
@@ -16,13 +18,15 @@ public class HashingService {
 
     private static final Logger logger = LoggerFactory.getLogger(HashingService.class);
 
-    public long computeHashOfImage(MultipartFile file) throws Exception{
+
+    public Long computeHashOfImage(MultipartFile file) throws Exception{
+        //CompletableFuture<Long> hashFuture = new CompletableFuture<>();
         try {
-            System.out.println("Main thread");
             BufferedImage bufferedImage = ImageIO.read(file.getInputStream());
             bufferedImage = grayScale(bufferedImage);
             bufferedImage = resizeImage(bufferedImage, 9, 9);
-            return dHash(bufferedImage, 9, 9);
+            //hashFuture.complete(Long.valueOf(dHash(bufferedImage, 9, 9)));
+            return Long.valueOf(dHash(bufferedImage, 9, 9));
         } catch (IOException ex) {
             logger.info(ex.getMessage(), ex);
         }

@@ -10,5 +10,8 @@ import java.util.concurrent.CompletableFuture;
 public interface FileSystem {
     //TODO: Можете изменить сигнатуру метода, она здесь в качестве примера
     CompletableFuture<String> saveFile(String fileName, byte[] file);
+    void deleteImage(String imageId);
+    void clearDiskStorage();
+    void ensureThatCacheExists();
     //TODO: Add extra methods here
 }
